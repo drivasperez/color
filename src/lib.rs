@@ -52,52 +52,52 @@ impl HslColor {
 fn rgb_to_hsl(rgb: &RgbColor) -> HslColor {
     let RgbColor { red, blue, green } = *rgb;
 
-    let r = f32::from(red) / 255.0;
-    let b = f32::from(blue) / 255.0;
-    let g = f32::from(green) / 255.0;
+    let red = f32::from(red) / 255.0;
+    let blue = f32::from(blue) / 255.0;
+    let green = f32::from(green) / 255.0;
 
-    let cmin = [r, g, b].into_iter().reduce(f32::min).unwrap();
-    let cmax = [r, g, b].into_iter().reduce(f32::max).unwrap();
+    let cmin = [red, green, blue].into_iter().reduce(f32::min).unwrap();
+    let cmax = [red, green, blue].into_iter().reduce(f32::max).unwrap();
     let delta = cmax - cmin;
 
-    let mut h;
-    let mut s;
-    let mut l;
+    let mut hue;
+    let mut saturation;
+    let mut luminosity;
 
     // hue
     if delta == 0.0 {
-        h = 0.0;
-    } else if cmax == r {
-        h = ((g - b) / delta) % 6.0;
-    } else if cmax == g {
-        h = (b - r) / delta + 2.0;
+        hue = 0.0;
+    } else if (cmax - red).abs() < f32::EPSILON {
+        hue = ((green - blue) / delta) % 6.0;
+    } else if (cmax - green).abs() < f32::EPSILON {
+        hue = (blue - red) / delta + 2.0;
     } else {
-        h = (r - g) / delta + 4.0;
+        hue = (red - green) / delta + 4.0;
     }
 
-    h = (h * 60.0).round();
+    hue = (hue * 60.0).round();
 
-    if h < 0.0 {
-        h += 360.0;
+    if hue < 0.0 {
+        hue += 360.0;
     }
 
     // luminosity
-    l = (cmax + cmin) / 2.0;
+    luminosity = (cmax + cmin) / 2.0;
 
     // saturation
-    s = if delta == 0.0 {
+    saturation = if delta == 0.0 {
         0.0
     } else {
-        delta / (1.0 - (2.0 * l - 1.0).abs())
+        delta / (1.0 - (2.0 * luminosity - 1.0).abs())
     };
 
-    s *= 100.0;
-    l *= 100.0;
+    saturation *= 100.0;
+    luminosity *= 100.0;
 
     HslColor {
-        hue: round_to_one_decimal_place(h),
-        saturation: round_to_one_decimal_place(s),
-        luminosity: round_to_one_decimal_place(l),
+        hue: round_to_one_decimal_place(hue),
+        saturation: round_to_one_decimal_place(saturation),
+        luminosity: round_to_one_decimal_place(luminosity),
     }
 }
 
@@ -122,23 +122,23 @@ fn hsl_to_rgb(hsl: &HslColor) -> RgbColor {
         red = chroma;
         green = x;
         blue = 0.0;
-    } else if 60.0 <= hue && hue < 120.0 {
+    } else if (60.0..120.0).contains(&hue) {
         red = x;
         green = chroma;
         blue = 0.0;
-    } else if 120.0 <= hue && hue < 180.0 {
+    } else if (120.0..180.0).contains(&hue) {
         red = 0.0;
         green = chroma;
         blue = x;
-    } else if 180.0 <= hue && hue < 240.0 {
+    } else if (180.0..240.0).contains(&hue) {
         red = 0.0;
         green = x;
         blue = chroma;
-    } else if 240.0 <= hue && hue < 300.0 {
+    } else if (240.0..300.0).contains(&hue) {
         red = x;
         green = 0.0;
         blue = chroma;
-    } else if 300.0 <= hue && hue < 360.0 {
+    } else if (300.0..360.0).contains(&hue) {
         red = chroma;
         green = 0.0;
         blue = x;
