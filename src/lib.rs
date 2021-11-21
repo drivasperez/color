@@ -108,52 +108,49 @@ fn hsl_to_rgb(hsl: &HslColor) -> RgbColor {
         luminosity,
     } = *hsl;
 
-    // Achromatic case
-    if saturation == 0.0 {
-        return RgbColor {
-            red: luminosity as u16,
-            green: luminosity as u16,
-            blue: luminosity as u16,
-        };
+    let saturation = saturation / 100.0;
+    let luminosity = luminosity / 100.0;
+
+    let chroma = (1.0 - (2.0 * luminosity - 1.0).abs()) * saturation;
+    let x = chroma * (1.0 - ((hue / 60.0) % 2.0 - 1.0).abs());
+    let lightness = luminosity - chroma / 2.0;
+    let red;
+    let green;
+    let blue;
+
+    if (0.0..60.0).contains(&hue) {
+        red = chroma;
+        green = x;
+        blue = 0.0;
+    } else if 60.0 <= hue && hue < 120.0 {
+        red = x;
+        green = chroma;
+        blue = 0.0;
+    } else if 120.0 <= hue && hue < 180.0 {
+        red = 0.0;
+        green = chroma;
+        blue = x;
+    } else if 180.0 <= hue && hue < 240.0 {
+        red = 0.0;
+        green = x;
+        blue = chroma;
+    } else if 240.0 <= hue && hue < 300.0 {
+        red = x;
+        green = 0.0;
+        blue = chroma;
+    } else if 300.0 <= hue && hue < 360.0 {
+        red = chroma;
+        green = 0.0;
+        blue = x;
+    } else {
+        panic!("Shouldn't be possible if initialised properly")
     }
 
-    let t2 = if luminosity <= 0.5 {
-        luminosity * (saturation + 1.0)
-    } else {
-        luminosity + saturation - (luminosity * saturation)
-    };
-
-    let t1 = luminosity * 2.0 - t2;
-
-    let red = hue_to_rgb(t1, t2, hue + 2.0).round() as u16;
-    let green = hue_to_rgb(t1, t2, hue).round() as u16;
-    let blue = hue_to_rgb(t1, t2, hue - 2.0).round() as u16;
+    let red = ((red + lightness) * 255.0).round() as u16;
+    let green = ((green + lightness) * 255.0).round() as u16;
+    let blue = ((blue + lightness) * 255.0).round() as u16;
 
     RgbColor { red, green, blue }
-}
-
-fn hue_to_rgb(t1: f32, t2: f32, hue: f32) -> f32 {
-    let mut adjusted_hue = hue;
-    if adjusted_hue < 0.0 {
-        adjusted_hue += 6.0
-    };
-    if adjusted_hue > 6.0 {
-        adjusted_hue -= 6.0
-    };
-
-    if hue < 1.0 {
-        return (t2 - t1) * adjusted_hue + t1;
-    }
-
-    if hue < 3.0 {
-        return t2;
-    }
-
-    if hue < 4.0 {
-        return (t2 - t1) * (4.0 - adjusted_hue) + t1;
-    }
-
-    t1
 }
 
 fn round_to_one_decimal_place(n: f32) -> f32 {
