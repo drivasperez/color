@@ -1,2 +1,2 @@
-mod colors;
+pub mod colors;
 mod parse;

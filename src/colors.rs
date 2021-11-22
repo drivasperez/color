@@ -3,19 +3,25 @@ pub struct HslColor {
     hue: f32,
     saturation: f32,
     luminosity: f32,
+    alpha: f32,
 }
 
 impl HslColor {
-    pub fn new<H, S, L>(h: H, s: S, l: L) -> Self
-    where
-        H: Into<f32>,
-        S: Into<f32>,
-        L: Into<f32>,
-    {
+    pub fn new(hue: f32, saturation: f32, luminosity: f32) -> Self {
         Self {
-            hue: h.into().clamp(0.0, 360.0),
-            luminosity: l.into().clamp(0.0, 100.0),
-            saturation: s.into().clamp(0.0, 100.0),
+            hue: hue.clamp(0.0, 360.0),
+            luminosity: luminosity.clamp(0.0, 100.0),
+            saturation: saturation.clamp(0.0, 100.0),
+            alpha: 1.0,
+        }
+    }
+
+    pub fn hsla(hue: f32, saturation: f32, luminosity: f32, alpha: f32) -> Self {
+        Self {
+            hue: hue.clamp(0.0, 360.0),
+            luminosity: luminosity.clamp(0.0, 100.0),
+            saturation: saturation.clamp(0.0, 100.0),
+            alpha: alpha.clamp(0.0, 1.0),
         }
     }
 
@@ -43,17 +49,27 @@ impl From<RgbColor> for HslColor {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RgbColor {
-    red: u16,
-    green: u16,
-    blue: u16,
+    red: f32,
+    green: f32,
+    blue: f32,
+    alpha: f32,
 }
 
 impl RgbColor {
-    pub fn new(r: u16, g: u16, b: u16) -> Self {
+    pub fn new(red: f32, green: f32, blue: f32) -> Self {
         Self {
-            red: r.clamp(0, 255),
-            blue: b.clamp(0, 255),
-            green: g.clamp(0, 255),
+            red: red.clamp(0.0, 255.0),
+            blue: blue.clamp(0.0, 255.0),
+            green: green.clamp(0.0, 255.0),
+            alpha: 1.0,
+        }
+    }
+    pub fn rgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
+        Self {
+            red: red.clamp(0.0, 255.0),
+            blue: blue.clamp(0.0, 255.0),
+            green: green.clamp(0.0, 255.0),
+            alpha: alpha.clamp(0.0, 1.0),
         }
     }
 }
@@ -65,11 +81,16 @@ impl From<HslColor> for RgbColor {
 }
 
 fn rgb_to_hsl(rgb: &RgbColor) -> HslColor {
-    let RgbColor { red, blue, green } = *rgb;
+    let RgbColor {
+        red,
+        blue,
+        green,
+        alpha,
+    } = *rgb;
 
-    let red = f32::from(red) / 255.0;
-    let blue = f32::from(blue) / 255.0;
-    let green = f32::from(green) / 255.0;
+    let red = red / 255.0;
+    let blue = blue / 255.0;
+    let green = green / 255.0;
 
     let cmin = [red, green, blue].into_iter().reduce(f32::min).unwrap();
     let cmax = [red, green, blue].into_iter().reduce(f32::max).unwrap();
@@ -113,6 +134,7 @@ fn rgb_to_hsl(rgb: &RgbColor) -> HslColor {
         hue: round_to_one_decimal_place(hue),
         saturation: round_to_one_decimal_place(saturation),
         luminosity: round_to_one_decimal_place(luminosity),
+        alpha,
     }
 }
 
@@ -121,6 +143,7 @@ fn hsl_to_rgb(hsl: &HslColor) -> RgbColor {
         hue,
         saturation,
         luminosity,
+        alpha,
     } = *hsl;
 
     let saturation = saturation / 100.0;
@@ -161,11 +184,16 @@ fn hsl_to_rgb(hsl: &HslColor) -> RgbColor {
         unreachable!("HSL hue is clamped to 0..=360")
     }
 
-    let red = ((red + lightness) * 255.0).round() as u16;
-    let green = ((green + lightness) * 255.0).round() as u16;
-    let blue = ((blue + lightness) * 255.0).round() as u16;
+    let red = ((red + lightness) * 255.0).round();
+    let green = ((green + lightness) * 255.0).round();
+    let blue = ((blue + lightness) * 255.0).round();
 
-    RgbColor { red, green, blue }
+    RgbColor {
+        red,
+        green,
+        blue,
+        alpha,
+    }
 }
 
 fn round_to_one_decimal_place(n: f32) -> f32 {
@@ -178,15 +206,15 @@ mod test {
 
     #[test]
     fn convert_rgb_to_hsl() {
-        let rgb = RgbColor::new(23_u16, 11_u16, 33_u16);
+        let rgb = RgbColor::new(23.0, 11.0, 33.0);
 
-        assert_eq!(HslColor::new(273_i16, 50.0, 8.6), rgb.into());
+        assert_eq!(HslColor::new(273.0, 50.0, 8.6), rgb.into());
     }
 
     #[test]
     fn convert_hsl_to_rgb() {
-        let hsl = HslColor::new(122_i16, 33_i16, 12_i16);
+        let hsl = HslColor::new(122.0, 33.0, 12.0);
 
-        assert_eq!(RgbColor::new(21, 41, 21), hsl.into());
+        assert_eq!(RgbColor::new(21.0, 41.0, 21.0), hsl.into());
     }
 }
