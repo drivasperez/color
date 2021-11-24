@@ -5,7 +5,7 @@ use nom::{
     character::complete::{one_of, space0, space1},
     combinator::{map, opt},
     number::complete::float,
-    sequence::{delimited, terminated, tuple},
+    sequence::{delimited, preceded, terminated, tuple},
     IResult,
 };
 
@@ -48,32 +48,60 @@ fn angle(input: &str) -> IResult<&str, Angle> {
 }
 
 fn percentage(input: &str) -> IResult<&str, f32> {
-    terminated(float, opt(tag("%")))(input)
+    terminated(float, tag("%"))(input)
 }
 
-fn hsl_triple(input: &str) -> IResult<&str, (Angle, f32, f32)> {
-    let parser = delimited(
+fn hsl_values(input: &str) -> IResult<&str, (Angle, f32, f32, Option<f32>)> {
+    let parser_commas = delimited(
         space0,
         tuple((
             angle,
-            comma_or_spaces,
-            percentage,
-            comma_or_spaces,
-            percentage,
+            delimited(space0, tag(","), space0),
+            alt((percentage, float)),
+            delimited(space0, tag(","), space0),
+            alt((percentage, float)),
+            opt(preceded(
+                delimited(space0, tag(","), space0),
+                alt((map(percentage, |p| p / 100.0), float)),
+            )),
         )),
         space0,
     );
 
-    map(parser, |(angle, _, sat, _, lum)| (angle, sat, lum))(input)
+    let parser_spaces = delimited(
+        space0,
+        tuple((
+            angle,
+            space1,
+            alt((percentage, float)),
+            space1,
+            alt((percentage, float)),
+            opt(preceded(
+                delimited(space0, tag("/"), space0),
+                alt((map(percentage, |p| p / 100.0), float)),
+            )),
+        )),
+        space0,
+    );
+    let parser = alt((parser_commas, parser_spaces));
+    map(parser, |(angle, _, sat, _, lum, alpha)| {
+        (angle, sat, lum, alpha)
+    })(input)
 }
 
 fn hsl_color(input: &str) -> IResult<&str, HslColor> {
-    let (input, (hue, saturation, luminosity)) =
-        delimited(tag("hsl("), hsl_triple, tag(")"))(input)?;
+    let (input, (hue, saturation, luminosity, alpha)) = preceded(
+        alt((tag("hsla"), tag("hsl"))),
+        delimited(tag("("), hsl_values, tag(")")),
+    )(input)?;
 
     Ok((
         input,
-        HslColor::new(hue.to_degrees(), saturation, luminosity),
+        if let Some(a) = alpha {
+            HslColor::hsla(hue.to_degrees(), saturation, luminosity, a)
+        } else {
+            HslColor::new(hue.to_degrees(), saturation, luminosity)
+        },
     ))
 }
 
@@ -95,22 +123,41 @@ mod test {
     }
 
     #[test]
-    fn parse_float_list() {
-        let (rest, output) = hsl_triple("32,11.22,04oeeooe").unwrap();
-        assert_eq!(output, (Angle::Degrees(32.0), 11.22, 4.0));
+    fn parse_hsl_values() {
+        let (rest, output) = hsl_values("32,11.22,04oeeooe").unwrap();
+        assert_eq!(output, (Angle::Degrees(32.0), 11.22, 4.0, None));
         assert_eq!(rest, "oeeooe");
 
-        let (rest, output) = hsl_triple("32deg, 11.22,04oeeooe").unwrap();
-        assert_eq!(output, (Angle::Degrees(32.0), 11.22, 4.0));
+        let (rest, output) = hsl_values("32deg, 11.22,04oeeooe").unwrap();
+        assert_eq!(output, (Angle::Degrees(32.0), 11.22, 4.0, None));
         assert_eq!(rest, "oeeooe");
 
-        let (rest, output) = hsl_triple("32deg   , 11.22,04oeeooe").unwrap();
-        assert_eq!(output, (Angle::Degrees(32.0), 11.22, 4.0));
+        let (rest, output) = hsl_values("32deg   , 11.22,04oeeooe").unwrap();
+        assert_eq!(output, (Angle::Degrees(32.0), 11.22, 4.0, None));
         assert_eq!(rest, "oeeooe");
 
-        let (rest, output) = hsl_triple("360rad 12% 34").unwrap();
-        assert_eq!(output, (Angle::Radians(360.0), 12.0, 34.0));
+        let (rest, output) = hsl_values("360rad 12% 34").unwrap();
+        assert_eq!(output, (Angle::Radians(360.0), 12.0, 34.0, None));
         assert_eq!(rest, "");
+
+        // Can't mix and match separators
+        assert!(hsl_values("354rad 12%, 34").is_err());
+        assert!(hsl_values("354rad, 12% 34").is_err());
+    }
+
+    #[test]
+    fn parse_hsla_values() {
+        let (_, output) = hsl_values("32,11.22,4.0,0.2").unwrap();
+        assert_eq!(output, (Angle::Degrees(32.0), 11.22, 4.0, Some(0.2)));
+
+        let (_, output) = hsl_values("32 11.22 4.0 / 0.2").unwrap();
+        assert_eq!(output, (Angle::Degrees(32.0), 11.22, 4.0, Some(0.2)));
+
+        let (_, output) = hsl_values("32,11.22,4.0, 20%").unwrap();
+        assert_eq!(output, (Angle::Degrees(32.0), 11.22, 4.0, Some(0.2)));
+
+        let (_, output) = hsl_values("32 11.22 4.0 / 50%").unwrap();
+        assert_eq!(output, (Angle::Degrees(32.0), 11.22, 4.0, Some(0.5)));
     }
 
     #[test]
@@ -119,18 +166,40 @@ mod test {
 
         assert_eq!(color, HslColor::new(212.0, 12.0, 24.2));
 
+        let (_, color) = hsl_color("hsla(212, 12, 24.2)").unwrap();
+        assert_eq!(color, HslColor::new(212.0, 12.0, 24.2));
+
         let (_, color) = hsl_color("hsl(212 12  24.2)").unwrap();
         assert_eq!(color, HslColor::new(212.0, 12.0, 24.2));
 
         let (_, color) = hsl_color("hsl(  212 12  24.2)").unwrap();
         assert_eq!(color, HslColor::new(212.0, 12.0, 24.2));
 
-        let (_, color) = hsl_color("hsl(2turn 24.3, 4%)").unwrap();
+        let (_, color) = hsl_color("hsl(2turn 24.3 4%)").unwrap();
         // Clamped at max 360
         assert_eq!(color, HslColor::new(360.0, 24.3, 4.0));
 
-        let (_, color) = hsl_color("hsl(2turn -24.3, 101%)").unwrap();
+        let (_, color) = hsl_color("hsl(2turn, -24.3, 101%)").unwrap();
         // Clamped at max 360, max 100, max 100, min 0
         assert_eq!(color, HslColor::new(360.0, 0.0, 100.0));
+    }
+
+    #[test]
+    fn parse_hsl_with_transparency() {
+        let (_, color) = hsl_color("hsla(212 12 24.2 / 0.3)").unwrap();
+        assert_eq!(color, HslColor::hsla(212.0, 12.0, 24.2, 0.3));
+
+        let (_, color) = hsl_color("hsl(212, 12, 24.2 , 0.3)").unwrap();
+        assert_eq!(color, HslColor::hsla(212.0, 12.0, 24.2, 0.3));
+
+        let (_, color) = hsl_color("hsla(212 12 24.2 / 30%)").unwrap();
+        assert_eq!(color, HslColor::hsla(212.0, 12.0, 24.2, 0.3));
+
+        let (_, color) = hsl_color("hsl(212, 12, 24.2 , 30%)").unwrap();
+        assert_eq!(color, HslColor::hsla(212.0, 12.0, 24.2, 0.3));
+
+        // Can't have transparency slash and commas
+        assert!(hsl_color("hsl(21deg, 32.2, 32% / 32%").is_err());
+        assert!(hsl_color("hsl(21deg, 32.2, 32% / 32deg").is_err());
     }
 }
