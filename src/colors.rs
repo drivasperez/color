@@ -1,9 +1,82 @@
+use std::fmt::Display;
+
+pub trait ColorT {
+    fn as_hsl_string(&self) -> String;
+    fn as_rgb_string(&self) -> String;
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Color {
+    Hsl(HslColor),
+    Rgb(RgbColor),
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Hsl(hsl) => write!(f, "{}", hsl),
+            Self::Rgb(rgb) => write!(f, "{}", rgb),
+        }
+    }
+}
+
+impl Color {
+    pub fn parse_from_str(s: &str) -> Result<Color, crate::Error> {
+        let (_, result) = crate::parse::parse_color(s).map_err(|_| crate::Error::InvalidColor)?;
+        Ok(result)
+    }
+
+    pub fn to_rgb(&self) -> RgbColor {
+        match self {
+            Color::Hsl(hsl) => hsl.clone().into(),
+            Color::Rgb(rgb) => rgb.clone(),
+        }
+    }
+
+    pub fn to_hsl_string(&self) -> String {
+        match self {
+            Self::Hsl(hsl) => format!("{}", hsl),
+            Self::Rgb(rgb) => format!("{}", HslColor::from(rgb.clone())),
+        }
+    }
+
+    pub fn to_rgb_string(&self) -> String {
+        match self {
+            Self::Rgb(rgb) => format!("{}", rgb),
+            Self::Hsl(hsl) => format!("{}", RgbColor::from(hsl.clone())),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct HslColor {
     hue: f32,
     saturation: f32,
     luminosity: f32,
     alpha: f32,
+}
+
+impl Display for HslColor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            hue,
+            saturation,
+            luminosity,
+            alpha,
+        } = *self;
+
+        write!(f, "hsl({} {} {} / {})", hue, saturation, luminosity, alpha)
+    }
+}
+
+impl ColorT for HslColor {
+    fn as_hsl_string(&self) -> String {
+        format!("{}", self)
+    }
+
+    fn as_rgb_string(&self) -> String {
+        format!("{}", hsl_to_rgb(self))
+    }
 }
 
 impl HslColor {
@@ -53,6 +126,28 @@ pub struct RgbColor {
     green: f32,
     blue: f32,
     alpha: f32,
+}
+
+impl Display for RgbColor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            red,
+            green,
+            blue,
+            alpha,
+        } = *self;
+        write!(f, "rgb({} {} {} / {})", red, green, blue, alpha)
+    }
+}
+
+impl ColorT for RgbColor {
+    fn as_hsl_string(&self) -> String {
+        format!("{}", rgb_to_hsl(self))
+    }
+
+    fn as_rgb_string(&self) -> String {
+        format!("{}", self)
+    }
 }
 
 impl RgbColor {
