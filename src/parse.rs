@@ -1,4 +1,4 @@
-use crate::colors::{Color, HslColor, RgbColor};
+use crate::colors::{HslColor, OldColor, RgbColor};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -201,9 +201,9 @@ fn rgb_color(input: &str) -> IResult<&str, RgbColor> {
     ))
 }
 
-pub fn parse_color(input: &str) -> IResult<&str, Color> {
+pub fn parse_color(input: &str) -> IResult<&str, OldColor> {
     terminated(
-        alt((map(hsl_color, Color::Hsl), map(rgb_color, Color::Rgb))),
+        alt((map(hsl_color, OldColor::Hsl), map(rgb_color, OldColor::Rgb))),
         eof,
     )(input)
 }

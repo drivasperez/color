@@ -1,17 +1,77 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
-pub trait ColorT {
-    fn as_hsl_string(&self) -> String;
-    fn as_rgb_string(&self) -> String;
+use crate::parse;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorType {
+    Hsl,
+    Hsla,
+    Rgb,
+    Rgba,
+    Hex,
+}
+
+// TODO: Rename this to Color and delete Color, HslColor and RgbColor
+pub struct Color {
+    parsed_as: ColorType,
+    red: f32,
+    green: f32,
+    blue: f32,
+    alpha: f32,
+}
+
+impl FromStr for Color {
+    type Err = crate::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // TODO: Change parse_color to convert to RGB and parse to this struct
+        // parse::parse_color(s)
+
+        todo!()
+    }
+}
+
+impl Color {
+    pub fn from_hsl(hue: f32, saturation: f32, luminosity: f32, alpha: f32) -> Self {
+        todo!()
+    }
+
+    pub fn from_rgb(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
+        todo!()
+    }
+
+    pub fn from_hex(hex: &str) -> Self {
+        todo!()
+    }
+
+    pub fn rgb(&self) -> (f32, f32, f32, f32) {
+        todo!()
+    }
+
+    pub fn hsl(&self) -> (f32, f32, f32, f32) {
+        todo!()
+    }
+
+    pub fn rgb_string(&self) -> String {
+        todo!()
+    }
+
+    pub fn hsl_string(&self) -> String {
+        todo!()
+    }
+
+    pub fn hex_string(&self) -> String {
+        todo!()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Color {
+pub enum OldColor {
     Hsl(HslColor),
     Rgb(RgbColor),
 }
 
-impl Display for Color {
+impl Display for OldColor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Hsl(hsl) => write!(f, "{}", hsl),
@@ -20,16 +80,16 @@ impl Display for Color {
     }
 }
 
-impl Color {
-    pub fn parse_from_str(s: &str) -> Result<Color, crate::Error> {
+impl OldColor {
+    pub fn parse_from_str(s: &str) -> Result<OldColor, crate::Error> {
         let (_, result) = crate::parse::parse_color(s).map_err(|_| crate::Error::InvalidColor)?;
         Ok(result)
     }
 
     pub fn to_rgb(&self) -> RgbColor {
         match self {
-            Color::Hsl(hsl) => hsl.clone().into(),
-            Color::Rgb(rgb) => rgb.clone(),
+            OldColor::Hsl(hsl) => hsl.clone().into(),
+            OldColor::Rgb(rgb) => rgb.clone(),
         }
     }
 
@@ -66,16 +126,6 @@ impl Display for HslColor {
         } = *self;
 
         write!(f, "hsl({} {} {} / {})", hue, saturation, luminosity, alpha)
-    }
-}
-
-impl ColorT for HslColor {
-    fn as_hsl_string(&self) -> String {
-        format!("{}", self)
-    }
-
-    fn as_rgb_string(&self) -> String {
-        format!("{}", hsl_to_rgb(self))
     }
 }
 
@@ -137,16 +187,6 @@ impl Display for RgbColor {
             alpha,
         } = *self;
         write!(f, "rgb({} {} {} / {})", red, green, blue, alpha)
-    }
-}
-
-impl ColorT for RgbColor {
-    fn as_hsl_string(&self) -> String {
-        format!("{}", rgb_to_hsl(self))
-    }
-
-    fn as_rgb_string(&self) -> String {
-        format!("{}", self)
     }
 }
 
