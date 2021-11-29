@@ -120,7 +120,7 @@ impl Color {
             ..
         } = *self;
 
-        if alpha == 1.0 {
+        if (alpha - 1.0).abs() < f32::EPSILON {
             format!("rgb({} {} {})", red, green, blue)
         } else {
             format!("rgb({} {} {} / {})", red, green, blue, alpha)
@@ -130,7 +130,7 @@ impl Color {
     pub fn hsl_string(&self) -> String {
         let (hue, sat, lum, alpha) = self.hsl();
 
-        if alpha == 1.0 {
+        if (alpha - 1.0).abs() < f32::EPSILON {
             format!("hsl({} {} {})", hue, sat, lum)
         } else {
             format!("hsl({} {} {} / {})", hue, sat, lum, alpha)
@@ -251,7 +251,7 @@ fn round_to_one_decimal_place(n: f32) -> f32 {
 }
 
 fn rgb_to_hex(red: f32, green: f32, blue: f32, alpha: f32) -> String {
-    if alpha == 1.0 {
+    if (alpha - 1.0).abs() < f32::EPSILON {
         format!(
             "#{:02X}{:02X}{:02X}",
             red.round() as i64,
