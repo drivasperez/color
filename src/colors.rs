@@ -7,6 +7,19 @@ pub enum ColorType {
     Hex,
 }
 
+impl FromStr for ColorType {
+    type Err = crate::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_ref() {
+            "hsl" | "hsla" => Ok(Self::Hsl),
+            "rgb" | "rgba" => Ok(Self::Rgb),
+            "hex" => Ok(Self::Hex),
+            _ => Err(crate::Error::InvalidColorType(s.to_string())),
+        }
+    }
+}
+
 // TODO: Rename this to Color and delete Color, HslColor and RgbColor
 #[derive(Clone, Debug)]
 pub struct Color {
