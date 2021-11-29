@@ -1,17 +1,14 @@
 use std::{fmt::Display, str::FromStr};
 
-use crate::parse;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ColorType {
     Hsl,
-    Hsla,
     Rgb,
-    Rgba,
     Hex,
 }
 
 // TODO: Rename this to Color and delete Color, HslColor and RgbColor
+#[derive(Clone, Debug)]
 pub struct Color {
     parsed_as: ColorType,
     red: f32,
@@ -24,20 +21,53 @@ impl FromStr for Color {
     type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // TODO: Change parse_color to convert to RGB and parse to this struct
-        // parse::parse_color(s)
+        let (_, color) = crate::parse::parse_color(s).map_err(|_| crate::Error::InvalidColor)?;
 
-        todo!()
+        Ok(color)
+    }
+}
+
+impl PartialEq for Color {
+    fn eq(&self, other: &Self) -> bool {
+        self.red == other.red
+            && self.green == other.green
+            && self.blue == other.blue
+            && self.alpha == other.alpha
+    }
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self.parsed_as {
+            ColorType::Hsl => self.hsl_string(),
+            ColorType::Rgb => self.rgb_string(),
+            ColorType::Hex => self.hex_string(),
+        };
+        write!(f, "{}", s)
     }
 }
 
 impl Color {
     pub fn from_hsl(hue: f32, saturation: f32, luminosity: f32, alpha: f32) -> Self {
-        todo!()
+        let (red, green, blue, alpha) = hsl_to_rgb(hue, saturation, luminosity, alpha);
+
+        Self {
+            red: red.clamp(0.0, 255.0),
+            green: green.clamp(0.0, 255.0),
+            blue: blue.clamp(0.0, 255.0),
+            alpha: alpha.clamp(0.0, 1.0),
+            parsed_as: ColorType::Hsl,
+        }
     }
 
     pub fn from_rgb(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
-        todo!()
+        Self {
+            red: red.clamp(0.0, 255.0),
+            green: green.clamp(0.0, 255.0),
+            blue: blue.clamp(0.0, 255.0),
+            alpha: alpha.clamp(0.0, 1.0),
+            parsed_as: ColorType::Rgb,
+        }
     }
 
     pub fn from_hex(hex: &str) -> Self {
@@ -45,187 +75,66 @@ impl Color {
     }
 
     pub fn rgb(&self) -> (f32, f32, f32, f32) {
-        todo!()
-    }
-
-    pub fn hsl(&self) -> (f32, f32, f32, f32) {
-        todo!()
-    }
-
-    pub fn rgb_string(&self) -> String {
-        todo!()
-    }
-
-    pub fn hsl_string(&self) -> String {
-        todo!()
-    }
-
-    pub fn hex_string(&self) -> String {
-        todo!()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum OldColor {
-    Hsl(HslColor),
-    Rgb(RgbColor),
-}
-
-impl Display for OldColor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Hsl(hsl) => write!(f, "{}", hsl),
-            Self::Rgb(rgb) => write!(f, "{}", rgb),
-        }
-    }
-}
-
-impl OldColor {
-    pub fn parse_from_str(s: &str) -> Result<OldColor, crate::Error> {
-        let (_, result) = crate::parse::parse_color(s).map_err(|_| crate::Error::InvalidColor)?;
-        Ok(result)
-    }
-
-    pub fn to_rgb(&self) -> RgbColor {
-        match self {
-            OldColor::Hsl(hsl) => hsl.clone().into(),
-            OldColor::Rgb(rgb) => rgb.clone(),
-        }
-    }
-
-    pub fn to_hsl_string(&self) -> String {
-        match self {
-            Self::Hsl(hsl) => format!("{}", hsl),
-            Self::Rgb(rgb) => format!("{}", HslColor::from(rgb.clone())),
-        }
-    }
-
-    pub fn to_rgb_string(&self) -> String {
-        match self {
-            Self::Rgb(rgb) => format!("{}", rgb),
-            Self::Hsl(hsl) => format!("{}", RgbColor::from(hsl.clone())),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct HslColor {
-    hue: f32,
-    saturation: f32,
-    luminosity: f32,
-    alpha: f32,
-}
-
-impl Display for HslColor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Self {
-            hue,
-            saturation,
-            luminosity,
-            alpha,
-        } = *self;
-
-        write!(f, "hsl({} {} {} / {})", hue, saturation, luminosity, alpha)
-    }
-}
-
-impl HslColor {
-    pub fn new(hue: f32, saturation: f32, luminosity: f32) -> Self {
-        Self {
-            hue: hue.clamp(0.0, 360.0),
-            luminosity: luminosity.clamp(0.0, 100.0),
-            saturation: saturation.clamp(0.0, 100.0),
-            alpha: 1.0,
-        }
-    }
-
-    pub fn hsla(hue: f32, saturation: f32, luminosity: f32, alpha: f32) -> Self {
-        Self {
-            hue: hue.clamp(0.0, 360.0),
-            luminosity: luminosity.clamp(0.0, 100.0),
-            saturation: saturation.clamp(0.0, 100.0),
-            alpha: alpha.clamp(0.0, 1.0),
-        }
-    }
-
-    /// Get a reference to the hsl color's hue.
-    pub fn hue(&self) -> f32 {
-        self.hue
-    }
-
-    /// Get a reference to the hsl color's saturation.
-    pub fn saturation(&self) -> f32 {
-        self.saturation
-    }
-
-    /// Get a reference to the hsl color's luminosity.
-    pub fn luminosity(&self) -> f32 {
-        self.luminosity
-    }
-}
-
-impl From<RgbColor> for HslColor {
-    fn from(rgb: RgbColor) -> Self {
-        rgb_to_hsl(&rgb)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct RgbColor {
-    red: f32,
-    green: f32,
-    blue: f32,
-    alpha: f32,
-}
-
-impl Display for RgbColor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self {
             red,
             green,
             blue,
             alpha,
+            ..
         } = *self;
-        write!(f, "rgb({} {} {} / {})", red, green, blue, alpha)
-    }
-}
 
-impl RgbColor {
-    pub fn new(red: f32, green: f32, blue: f32) -> Self {
-        Self {
-            red: red.clamp(0.0, 255.0),
-            blue: blue.clamp(0.0, 255.0),
-            green: green.clamp(0.0, 255.0),
-            alpha: 1.0,
+        (red, green, blue, alpha)
+    }
+
+    pub fn hsl(&self) -> (f32, f32, f32, f32) {
+        let Self {
+            red,
+            green,
+            blue,
+            alpha,
+            ..
+        } = *self;
+
+        rgb_to_hsl(red, green, blue, alpha)
+    }
+
+    pub fn rgb_string(&self) -> String {
+        let Self {
+            red,
+            green,
+            blue,
+            alpha,
+            ..
+        } = *self;
+
+        if alpha == 1.0 {
+            format!("rgb({} {} {})", red, green, blue)
+        } else {
+            format!("rgb({} {} {} / {})", red, green, blue, alpha)
         }
     }
-    pub fn rgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
-        Self {
-            red: red.clamp(0.0, 255.0),
-            blue: blue.clamp(0.0, 255.0),
-            green: green.clamp(0.0, 255.0),
-            alpha: alpha.clamp(0.0, 1.0),
+
+    pub fn hsl_string(&self) -> String {
+        let (hue, sat, lum, alpha) = self.hsl();
+
+        if alpha == 1.0 {
+            format!("hsl({} {} {})", hue, sat, lum)
+        } else {
+            format!("hsl({} {} {} / {})", hue, sat, lum, alpha)
         }
     }
-}
 
-impl From<HslColor> for RgbColor {
-    fn from(hsl: HslColor) -> Self {
-        hsl_to_rgb(&hsl)
+    pub fn hex_string(&self) -> String {
+        let (red, green, blue, alpha) = self.rgb();
+        rgb_to_hex(red, green, blue, alpha)
     }
 }
 
-fn rgb_to_hsl(rgb: &RgbColor) -> HslColor {
-    let RgbColor {
-        red,
-        blue,
-        green,
-        alpha,
-    } = *rgb;
-
-    let red = red / 255.0;
-    let blue = blue / 255.0;
-    let green = green / 255.0;
+fn rgb_to_hsl(red: f32, green: f32, blue: f32, alpha: f32) -> (f32, f32, f32, f32) {
+    let red = red.clamp(0.0, 255.0) / 255.0;
+    let green = green.clamp(0.0, 255.0) / 255.0;
+    let blue = blue.clamp(0.0, 255.0) / 255.0;
+    let alpha = alpha.clamp(0.0, 1.0);
 
     let cmin = [red, green, blue].into_iter().reduce(f32::min).unwrap();
     let cmax = [red, green, blue].into_iter().reduce(f32::max).unwrap();
@@ -265,21 +174,19 @@ fn rgb_to_hsl(rgb: &RgbColor) -> HslColor {
     saturation *= 100.0;
     luminosity *= 100.0;
 
-    HslColor {
-        hue: round_to_one_decimal_place(hue),
-        saturation: round_to_one_decimal_place(saturation),
-        luminosity: round_to_one_decimal_place(luminosity),
+    (
+        round_to_one_decimal_place(hue),
+        round_to_one_decimal_place(saturation),
+        round_to_one_decimal_place(luminosity),
         alpha,
-    }
+    )
 }
 
-fn hsl_to_rgb(hsl: &HslColor) -> RgbColor {
-    let HslColor {
-        hue,
-        saturation,
-        luminosity,
-        alpha,
-    } = *hsl;
+fn hsl_to_rgb(hue: f32, saturation: f32, luminosity: f32, alpha: f32) -> (f32, f32, f32, f32) {
+    let hue = hue.clamp(0.0, 360.0);
+    let saturation = saturation.clamp(0.0, 100.0);
+    let luminosity = luminosity.clamp(0.0, 100.0);
+    let alpha = alpha.clamp(0.0, 1.0);
 
     let saturation = saturation / 100.0;
     let luminosity = luminosity / 100.0;
@@ -311,7 +218,7 @@ fn hsl_to_rgb(hsl: &HslColor) -> RgbColor {
         red = x;
         green = 0.0;
         blue = chroma;
-    } else if (300.0..360.0).contains(&hue) {
+    } else if (300.0..=360.0).contains(&hue) {
         red = chroma;
         green = 0.0;
         blue = x;
@@ -323,16 +230,31 @@ fn hsl_to_rgb(hsl: &HslColor) -> RgbColor {
     let green = ((green + lightness) * 255.0).round();
     let blue = ((blue + lightness) * 255.0).round();
 
-    RgbColor {
-        red,
-        green,
-        blue,
-        alpha,
-    }
+    (red, green, blue, alpha)
 }
 
 fn round_to_one_decimal_place(n: f32) -> f32 {
     (n * 10.0).round() / 10.0
+}
+
+fn rgb_to_hex(red: f32, green: f32, blue: f32, alpha: f32) -> String {
+    if alpha == 1.0 {
+        format!(
+            "#{:02X}{:02X}{:02X}",
+            red.round() as i64,
+            green.round() as i64,
+            blue.round() as i64
+        )
+    } else {
+        let alpha = (alpha * 255.0).round() as i64;
+        format!(
+            "#{:02X}{:02X}{:02X}{:02X}",
+            red.round() as i64,
+            green.round() as i64,
+            blue.round() as i64,
+            alpha
+        )
+    }
 }
 
 #[cfg(test)]
@@ -341,15 +263,15 @@ mod test {
 
     #[test]
     fn convert_rgb_to_hsl() {
-        let rgb = RgbColor::new(23.0, 11.0, 33.0);
+        let color = Color::from_rgb(23.0, 11.0, 33.0, 1.0);
 
-        assert_eq!(HslColor::new(273.0, 50.0, 8.6), rgb.into());
+        assert_eq!((273.0, 50.0, 8.6, 1.0), color.hsl());
     }
 
     #[test]
     fn convert_hsl_to_rgb() {
-        let hsl = HslColor::new(122.0, 33.0, 12.0);
+        let color = Color::from_hsl(122.0, 33.0, 12.0, 0.4);
 
-        assert_eq!(RgbColor::new(21.0, 41.0, 21.0), hsl.into());
+        assert_eq!((21.0, 41.0, 21.0, 0.4), color.rgb());
     }
 }

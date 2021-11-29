@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use color::colors::OldColor;
+use color::colors::Color;
 use std::{error::Error, str::FromStr};
 use structopt::StructOpt;
 
@@ -24,7 +24,7 @@ impl FromStr for ColorType {
 #[derive(StructOpt, Debug)]
 #[structopt(name = "color", about = "A utility for converting and picking colours")]
 struct Opt {
-    color: String,
+    color: Color,
     #[structopt(short = "o", long = "output")]
     output: Option<Vec<ColorType>>,
 }
@@ -32,12 +32,11 @@ struct Opt {
 fn main() -> Result<(), Box<dyn Error>> {
     let Opt { color, output } = Opt::from_args();
 
-    let color = OldColor::parse_from_str(&color)?;
     if let Some(v) = output {
         for c in v {
             let color = match c {
-                ColorType::Hsl => color.to_hsl_string(),
-                ColorType::Rgb => color.to_rgb_string(),
+                ColorType::Hsl => color.hsl_string(),
+                ColorType::Rgb => color.rgb_string(),
             };
             println!("{}", color);
         }

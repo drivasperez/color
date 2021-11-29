@@ -1,4 +1,4 @@
-use crate::colors::{HslColor, OldColor, RgbColor};
+use crate::colors::Color;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -85,7 +85,7 @@ fn hsl_values(input: &str) -> IResult<&str, (Angle, f32, f32, Option<f32>)> {
     })(input)
 }
 
-fn hsl_color(input: &str) -> IResult<&str, HslColor> {
+fn hsl_color(input: &str) -> IResult<&str, (f32, f32, f32, f32)> {
     let (input, (hue, saturation, luminosity, alpha)) = preceded(
         alt((tag("hsla"), tag("hsl"))),
         delimited(tag("("), hsl_values, tag(")")),
@@ -93,11 +93,12 @@ fn hsl_color(input: &str) -> IResult<&str, HslColor> {
 
     Ok((
         input,
-        if let Some(a) = alpha {
-            HslColor::hsla(hue.to_degrees(), saturation, luminosity, a)
-        } else {
-            HslColor::new(hue.to_degrees(), saturation, luminosity)
-        },
+        (
+            hue.to_degrees(),
+            saturation,
+            luminosity,
+            alpha.unwrap_or(1.0),
+        ),
     ))
 }
 
@@ -185,25 +186,25 @@ fn rgb_values(input: &str) -> IResult<&str, (f32, f32, f32, Option<f32>)> {
     ))(input)
 }
 
-fn rgb_color(input: &str) -> IResult<&str, RgbColor> {
+fn rgb_color(input: &str) -> IResult<&str, (f32, f32, f32, f32)> {
     let (input, (red, green, blue, alpha)) = preceded(
         alt((tag("rgba"), tag("rgb"))),
         delimited(tag("("), rgb_values, tag(")")),
     )(input)?;
 
-    Ok((
-        input,
-        if let Some(a) = alpha {
-            RgbColor::rgba(red, green, blue, a)
-        } else {
-            RgbColor::new(red, green, blue)
-        },
-    ))
+    Ok((input, (red, green, blue, alpha.unwrap_or(1.0))))
 }
 
-pub fn parse_color(input: &str) -> IResult<&str, OldColor> {
+pub fn parse_color(input: &str) -> IResult<&str, Color> {
     terminated(
-        alt((map(hsl_color, OldColor::Hsl), map(rgb_color, OldColor::Rgb))),
+        alt((
+            map(hsl_color, |(hue, sat, lum, alpha)| {
+                Color::from_hsl(hue, sat, lum, alpha)
+            }),
+            map(rgb_color, |(red, green, blue, alpha)| {
+                Color::from_hsl(red, green, blue, alpha)
+            }),
+        )),
         eof,
     )(input)
 }
@@ -254,39 +255,37 @@ mod test {
     fn parse_hsl() {
         let (_, color) = hsl_color("hsl(212, 12, 24.2)").unwrap();
 
-        assert_eq!(color, HslColor::new(212.0, 12.0, 24.2));
+        assert_eq!(color, (212.0, 12.0, 24.2, 1.0));
 
         let (_, color) = hsl_color("hsla(212, 12, 24.2)").unwrap();
-        assert_eq!(color, HslColor::new(212.0, 12.0, 24.2));
+        assert_eq!(color, (212.0, 12.0, 24.2, 1.0));
 
         let (_, color) = hsl_color("hsl(212 12  24.2)").unwrap();
-        assert_eq!(color, HslColor::new(212.0, 12.0, 24.2));
+        assert_eq!(color, (212.0, 12.0, 24.2, 1.0));
 
         let (_, color) = hsl_color("hsl(  212 12  24.2)").unwrap();
-        assert_eq!(color, HslColor::new(212.0, 12.0, 24.2));
+        assert_eq!(color, (212.0, 12.0, 24.2, 1.0));
 
         let (_, color) = hsl_color("hsl(2turn 24.3 4%)").unwrap();
-        // Clamped at max 360
-        assert_eq!(color, HslColor::new(360.0, 24.3, 4.0));
+        assert_eq!(color, (720.0, 24.3, 4.0, 1.0));
 
         let (_, color) = hsl_color("hsl(2turn, -24.3, 101%)").unwrap();
-        // Clamped at max 360, max 100, max 100, min 0
-        assert_eq!(color, HslColor::new(360.0, 0.0, 100.0));
+        assert_eq!(color, (720.0, -24.3, 101.0, 1.0));
     }
 
     #[test]
     fn parse_hsl_with_transparency() {
         let (_, color) = hsl_color("hsla(212 12 24.2 / 0.3)").unwrap();
-        assert_eq!(color, HslColor::hsla(212.0, 12.0, 24.2, 0.3));
+        assert_eq!(color, (212.0, 12.0, 24.2, 0.3));
 
         let (_, color) = hsl_color("hsl(212, 12, 24.2 , 0.3)").unwrap();
-        assert_eq!(color, HslColor::hsla(212.0, 12.0, 24.2, 0.3));
+        assert_eq!(color, (212.0, 12.0, 24.2, 0.3));
 
         let (_, color) = hsl_color("hsla(212 12 24.2 / 30%)").unwrap();
-        assert_eq!(color, HslColor::hsla(212.0, 12.0, 24.2, 0.3));
+        assert_eq!(color, (212.0, 12.0, 24.2, 0.3));
 
         let (_, color) = hsl_color("hsl(212, 12, 24.2 , 30%)").unwrap();
-        assert_eq!(color, HslColor::hsla(212.0, 12.0, 24.2, 0.3));
+        assert_eq!(color, (212.0, 12.0, 24.2, 0.3));
 
         // Can't have transparency slash and commas
         assert!(hsl_color("hsl(21deg, 32.2, 32% / 32%").is_err());
